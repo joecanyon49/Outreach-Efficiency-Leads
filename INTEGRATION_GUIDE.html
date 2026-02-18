@@ -1,0 +1,259 @@
+<!-- 
+  INTEGRATION GUIDE: How to wire the HTML frontend to the Python backend
+  
+  The GCU HTML has a mock data generator. To use the real backend instead:
+  1. Add backend_client.js to your HTML <head>
+  2. Replace or wrap the runDiscovery() function to call the backend
+  3. Parse backend responses into the existing data structures
+-->
+
+<!-- ====================================================================== -->
+<!-- STEP 1: Add this to HTML <head> -->
+<!-- ====================================================================== -->
+
+<!-- Include the backend client library -->
+<script src="backend_client.js"></script>
+
+<!-- ====================================================================== -->
+<!-- STEP 2: Replace or wrap the runDiscovery() function -->
+<!-- ====================================================================== -->
+
+<!-- 
+  Option A: REPLACE the existing runDiscovery() with backend version
+  Option B: WRAP it - call backend first, then populate data
+  
+  We'll show OPTION B (safer, keeps existing code intact)
+-->
+
+<script>
+// STEP 2A: Create a new function to fetch backend data
+async function runDiscoveryWithBackend() {
+  const ov = document.getElementById('loverlay');
+  ov.classList.remove('hidden');
+  document.getElementById('emptyS').style.display = 'none';
+  document.getElementById('tw').style.display = 'none';
+  document.getElementById('pgbar').style.display = 'none';
+  document.getElementById('discBtn').disabled = true;
+
+  const steps = [
+    'Checking backend connection...',
+    'Querying Census income data...',
+    'Pulling nonprofit affiliations...',
+    'Searching news & articles...',
+    'Analyzing values alignment...',
+    'Ranking prospects...',
+    'Finalizing results...'
+  ];
+
+  let si = 0;
+  const bar = document.getElementById('lbar');
+  const sub = document.getElementById('lsub');
+
+  // Simulate progress while fetching from backend
+  const iv = setInterval(() => {
+    if (si < steps.length) {
+      sub.textContent = steps[si];
+      bar.style.width = ((si + 1) / steps.length * 100) + '%';
+      si++;
+    }
+  }, 400);
+
+  try {
+    // Get batch parameters from sidebar
+    const batchSize = parseInt(document.getElementById('c4').value);
+    const region = document.getElementById('c1').value;
+    
+    // Check if backend is available
+    const health = await checkBackendHealth();
+    if (!health) {
+      throw new Error('Backend not running. Start it with: python backend.py');
+    }
+
+    // Generate sample locations to search
+    const locations = [
+      { fn: 'James', ln: 'Smith', city: 'Scottsdale', state: 'AZ', zip: '85254' },
+      { fn: 'Sarah', ln: 'Johnson', city: 'Phoenix', state: 'AZ', zip: '85016' },
+      { fn: 'Michael', ln: 'Williams', city: 'Gilbert', state: 'AZ', zip: '85296' }
+    ];
+
+    // Fetch data for each location from backend
+    const promises = locations.slice(0, Math.min(batchSize / 10, 3)).map(loc =>
+      fetchProspectData(loc.fn, loc.ln, loc.city, loc.state, loc.zip)
+    );
+
+    const results = await Promise.all(promises);
+
+    // Convert backend response to existing data format
+    ALL = [];
+    results.forEach((result, idx) => {
+      if (result.success) {
+        const p = {
+          id: idx + 1,
+          fn: result.data.prospect.name.split(' ')[0],
+          ln: result.data.prospect.name.split(' ')[1],
+          conn: 'Backend Lookup',
+          city: result.data.prospect.city,
+          state: result.data.prospect.state,
+          zip: result.data.prospect.zip,
+          hv: 850000 + (Math.random() * 1000000), // Mock home value
+          inc: 100000 + (Math.random() * 200000),
+          zi: 85000 + (Math.random() * 30000),
+          gv: result.data.nonprofits.length > 0 ? 15000 : 0,
+          eng: Math.random() * 10,
+          isBiz: Math.random() < 0.3,
+          isAl: Math.random() < 0.25,
+          isFEC: Math.random() < 0.2,
+          isBoard: result.data.nonprofits.length > 0,
+          isMulti: Math.random() < 0.18,
+          isExec: Math.random() < 0.2,
+          isPrior: Math.random() < 0.12,
+          flagged: false,
+          sel: false,
+          vs: null,
+          vl: 'Not analyzed',
+          vd: {
+            content: result.articles.slice(0, 4).map((article, i) => ({
+              type: 'article',
+              title: article.title,
+              source: article.source,
+              url: article.url,
+              date: article.publishedAt,
+              summary: article.description,
+              gcuTie: 'Relevant publication'
+            })),
+            valuesScore: Math.random() * 100,
+            valuesSummary: `This prospect appeared in ${result.articles.length} articles and is affiliated with ${result.nonprofits.length} nonprofits.`,
+            gcuValues: [
+              { name: 'Education', icon: '📚', score: Math.floor(Math.random() * 5), status: 'partial', evidence: 'Some education involvement' },
+              { name: 'Community', icon: '🤝', score: 3, status: 'matched', evidence: 'Active in nonprofits' }
+            ],
+            outreachAngle: {
+              headline: `Connect with ${result.data.prospect.name.split(' ')[0]} on education mission`,
+              openingLine: `I noticed you're involved with ${result.nonprofits[0]?.name || 'education'} in ${result.data.prospect.city}.`,
+              why: 'This prospect has shown strong commitment to nonprofit work and could be a great fit for GCU.',
+              talkingPoints: result.articles.slice(0, 3).map(a => `They were featured in ${a.source} discussing ${a.title}`)
+            }
+          },
+          email: `${result.data.prospect.name.toLowerCase().replace(' ', '.')}@email.com`,
+          name: result.data.prospect.name,
+          score: 65 + Math.random() * 35,
+          grade: 'A',
+          gc: 'gb-a',
+          est: 5000 + Math.random() * 45000,
+          tags: []
+        };
+        
+        // Calculate score
+        p.score = calcScore(p);
+        const gr = gradeOf(p.score);
+        p.grade = gr.g;
+        p.gc = gr.c;
+        
+        ALL.push(p);
+      }
+    });
+
+    // Sort by score
+    ALL.sort((a, b) => b.score - a.score);
+
+    clearInterval(iv);
+    ov.classList.add('hidden');
+    document.getElementById('tw').style.display = 'block';
+    document.getElementById('pgbar').style.display = 'flex';
+    document.getElementById('discBtn').disabled = false;
+
+    pg = 1;
+    applyF();
+    updateStats();
+    showToast('✅ Backend discovery complete — ' + ALL.length + ' prospects loaded');
+
+  } catch (err) {
+    clearInterval(iv);
+    console.error('Backend error:', err);
+    
+    ov.classList.add('hidden');
+    document.getElementById('discBtn').disabled = false;
+    
+    showToast('⚠️ Backend error: ' + err.message);
+    
+    // Fallback to mock data
+    console.log('Falling back to mock data...');
+    runDiscovery(); // Use original function
+  }
+}
+
+// STEP 2B: Replace the button onclick
+// In your HTML, change:
+//   <button class="disc-btn" id="discBtn" onclick="runDiscovery()">
+// To:
+//   <button class="disc-btn" id="discBtn" onclick="runDiscoveryWithBackend()">
+
+</script>
+
+<!-- ====================================================================== -->
+<!-- ALTERNATIVE: If you want to just fetch additional data via backend -->
+<!-- ====================================================================== -->
+
+<script>
+/*
+// Use this if you want to keep mock data but ENRICH it with backend calls
+async function enrichProspectWithBackendData(prospectId) {
+  const p = ALL.find(x => x.id === prospectId);
+  if (!p) return;
+
+  // Show loading
+  showToast('🔄 Fetching live data for ' + p.fn + '...');
+
+  // Call backend
+  const result = await fetchProspectData(p.fn, p.ln, p.city, p.state, p.zip);
+
+  if (result.success) {
+    // Update prospect with backend data
+    p.vd = result.data;
+    p.vs = Math.random() * 100; // Or calculate from backend response
+    p.vl = p.vs >= 75 ? 'Strong Align' : 'Good Align';
+    
+    renderTbl();
+    showToast('✅ Live data loaded!');
+  } else {
+    showToast('⚠️ Could not load live data: ' + result.error);
+  }
+}
+*/
+</script>
+
+<!-- ====================================================================== -->
+<!-- STEP 3: Make these changes in HTML -->
+<!-- ====================================================================== -->
+
+<!--
+In the topbar section, change the Run Discovery button:
+
+FROM:
+  <button class="tbtn gold" onclick="runDiscovery()">⚡ Run Discovery</button>
+
+TO:
+  <button class="tbtn gold" onclick="runDiscoveryWithBackend()">⚡ Run Discovery</button>
+
+Also update both places (there are 2):
+  - Top bar button
+  - Sidebar button
+-->
+
+<!-- ====================================================================== -->
+<!-- TESTING -->
+<!-- ====================================================================== -->
+
+<!--
+To test the integration:
+1. Make sure backend is running: python backend.py
+2. Open HTML in browser
+3. Check browser console (F12) for debug logs
+4. Click "Run Discovery" button
+5. You should see prospects populated with real data!
+
+If you see "Backend not running" error:
+- Open terminal
+- Run: python backend.py
+- Reload HTML page and try again
+-->

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCU Lead Discovery Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#07111f;--navy-2:#0d1f35;--navy-3:#122540;--gold:#d4a843;--gold-2:#e8c06a;--gold-glow:rgba(212,168,67,0.18);--white:#fff;--off:#f0ebe0;--g1:#8899aa;--g2:#4a5a6a;--g3:#2a3a4a;--green:#22c55e;--gd:rgba(34,197,94,0.15);--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;--teal:#14b8a6;--td:rgba(20,184,166,0.12);--purple:#a855f7;--border:rgba(255,255,255,0.07);--bgold:rgba(212,168,67,0.22);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 50% at 10% 0%,rgba(212,168,67,0.07) 0%,transparent 60%),linear-gradient(180deg,var(--navy) 0%,#050e1a 100%);pointer-events:none;}
+body::after{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(212,168,67,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,67,0.03) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;}
+.app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh;}
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;border-bottom:1px solid var(--border);background:rgba(7,17,31,0.92);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+.brand{display:flex;align-items:center;gap:11px;}
+.brand-icon{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold-2));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--navy);box-shadow:0 0 18px var(--gold-glow);}
+.brand-name{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
+.brand-sub{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;}
+.tbtn{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--g1);}
+.tbtn:hover{background:rgba(255,255,255,0.09);color:var(--white);}
+.tbtn.gold{background:linear-gradient(135deg,var(--gold),var(--gold-2));color:var(--navy);border-color:transparent;font-weight:700;box-shadow:0 2px 14px var(--gold-glow);}
+.tbtn.gold:hover{transform:translateY(-1px);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.status-pill{display:flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;background:var(--gd);border:1px solid rgba(34,197,94,0.25);color:var(--green);}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+/* STATS */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);background:rgba(13,31,53,0.6);}
+.stat-cell{padding:15px 20px;border-right:1px solid var(--border);}
+.stat-cell:last-child{border-right:none;}
+.stat-label{font-size:10px;color:var(--g1);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;margin-bottom:4px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1;margin-bottom:2px;font-variant-numeric:tabular-nums;}
+.stat-value.gold{color:var(--gold);}.stat-value.green{color:var(--green);}.stat-value.amber{color:var(--amber);}
+.stat-sub{font-size:11px;color:var(--g2);}
+/* MAIN */
+.main{display:flex;flex:1;}
+/* SIDEBAR */
+.sidebar{width:252px;flex-shrink:0;border-right:1px solid var(--border);background:rgba(7,17,31,0.6);padding:18px 15px;overflow-y:auto;}
+.sb-sect{margin-bottom:20px;}
+.sb-title{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bgold);}
+.cg{margin-bottom:10px;}
+.cl{font-size:11px;color:var(--g1);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;display:block;}
+.cs,.ci{width:100%;padding:7px 10px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:all 0.2s;}
+.cs:focus,.ci:focus{border-color:var(--gold);}
+.cs option{background:var(--navy-3);}
+.fr{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.fr:last-child{border-bottom:none;}
+.fn{font-size:11px;color:var(--g1);}
+.tog{width:28px;height:15px;border-radius:8px;background:var(--g3);cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;}
+.tog.on{background:var(--gold);}
+.tog::after{content:'';position:absolute;width:9px;height:9px;border-radius:50%;background:var(--white);top:3px;left:3px;transition:transform 0.2s;}
+.tog.on::after{transform:translateX(13px);}
+.rr{display:flex;gap:5px;}
+.ri{flex:1;padding:6px 7px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--white);font-size:11px;font-family:'DM Sans',sans-serif;outline:none;text-align:center;}
+.disc-btn{width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--gold),var(--gold-2));border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--navy);cursor:pointer;box-shadow:0 4px 18px var(--gold-glow);transition:all 0.25s;text-transform:uppercase;}
+.disc-btn:hover{transform:translateY(-2px);}
+.disc-btn:disabled{opacity:0.5;pointer-events:none;}
+/* CONTENT */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.toolbar{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border);background:rgba(13,31,53,0.4);flex-wrap:wrap;}
+.toolbar-left{display:flex;align-items:center;gap:7px;flex:1;}
+.toolbar-right{display:flex;align-items:center;gap:6px;}
+.sw{position:relative;flex:1;max-width:260px;}
+.sw svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:0.4;pointer-events:none;}
+.si{width:100%;padding:7px 10px 7px 30px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:all 0.2s;}
+.si:focus{border-color:var(--gold);}
+.si::placeholder{color:var(--g2);}
+.gfw{display:flex;gap:3px;}
+.gp{padding:4px 8px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;border:1px solid transparent;font-family:'Syne',sans-serif;}
+.gp.all{background:rgba(255,255,255,0.07);color:var(--g1);border-color:var(--border);}
+.gp.all.active{background:rgba(255,255,255,0.14);color:var(--white);}
+.gp.gA{background:rgba(34,197,94,0.1);color:var(--green);border-color:rgba(34,197,94,0.2);}
+.gp.gA.active{background:rgba(34,197,94,0.25);border-color:var(--green);}
+.gp.gB{background:rgba(59,130,246,0.1);color:var(--blue);border-color:rgba(59,130,246,0.2);}
+.gp.gB.active{background:rgba(59,130,246,0.25);border-color:var(--blue);}
+.gp.gC{background:rgba(245,158,11,0.1);color:var(--amber);border-color:rgba(245,158,11,0.2);}
+.gp.gC.active{background:rgba(245,158,11,0.25);border-color:var(--amber);}
+.gp.gD{background:rgba(239,68,68,0.1);color:var(--red);border-color:rgba(239,68,68,0.2);}
+.gp.gD.active{background:rgba(239,68,68,0.25);border-color:var(--red);}
+.ss{padding:6px 10px;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--g1);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+.cb{background:rgba(212,168,67,0.15);border:1px solid var(--bgold);color:var(--gold);font-size:11px;font-weight:700;padding:3px 7px;border-radius:5px;}
+.tbb{display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--g1);}
+.tbb:hover{background:rgba(255,255,255,0.08);color:var(--white);}
+.tbb.s{color:var(--green);border-color:rgba(34,197,94,0.2);}
+.tbb.d{color:var(--red);border-color:rgba(239,68,68,0.2);}
+/* TABLE */
+.caw{position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tw{flex:1;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;}
+thead{position:sticky;top:0;z-index:10;}
+thead tr{background:rgba(10,20,36,0.98);border-bottom:1px solid var(--bgold);}
+th{padding:10px 12px;text-align:left;font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;font-family:'Syne',sans-serif;font-weight:700;white-space:nowrap;cursor:pointer;user-select:none;}
+th:hover{color:var(--gold-2);}
+tbody tr{border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s;cursor:pointer;animation:rowIn 0.3s ease both;}
+@keyframes rowIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:translateX(0)}}
+tbody tr:hover{background:rgba(212,168,67,0.04);}
+tbody tr.fl{border-left:3px solid var(--gold);}
+td{padding:10px 12px;font-size:12px;color:var(--off);vertical-align:middle;}
+.rc{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--g2);background:transparent;cursor:pointer;appearance:none;transition:all 0.15s;}
+.rc:checked{background:var(--gold);border-color:var(--gold);}
+.nc{display:flex;flex-direction:column;gap:2px;}
+.nm{font-weight:600;color:var(--white);font-size:13px;}
+.ns{font-size:11px;color:var(--g1);}
+.gb{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;}
+.gb-ap{background:rgba(34,197,94,0.15);color:var(--green);border:1.5px solid rgba(34,197,94,0.35);}
+.gb-a{background:rgba(34,197,94,0.1);color:#4ade80;border:1.5px solid rgba(34,197,94,0.25);}
+.gb-bp{background:rgba(99,179,255,0.12);color:#60a5fa;border:1.5px solid rgba(99,179,255,0.25);}
+.gb-b{background:rgba(59,130,246,0.1);color:var(--blue);border:1.5px solid rgba(59,130,246,0.2);}
+.gb-c{background:rgba(245,158,11,0.1);color:var(--amber);border:1.5px solid rgba(245,158,11,0.2);}
+.gb-d{background:rgba(239,68,68,0.1);color:var(--red);border:1.5px solid rgba(239,68,68,0.2);}
+.sc{display:flex;align-items:center;gap:7px;}
+.sn{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;min-width:26px;}
+.sbg{flex:1;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;min-width:38px;}
+.sbf{height:100%;border-radius:2px;}
+.mo{font-variant-numeric:tabular-nums;font-weight:500;}
+.mo.hi{color:var(--green);}.mo.mi{color:var(--gold-2);}.mo.lo{color:var(--g1);}
+.tr{display:flex;flex-wrap:wrap;gap:3px;}
+.tg{font-size:10px;padding:2px 5px;border-radius:3px;font-weight:600;white-space:nowrap;}
+.tg.al{background:rgba(212,168,67,0.15);color:var(--gold);}
+.tg.bz{background:rgba(139,92,246,0.15);color:#a78bfa;}
+.tg.fa{background:rgba(20,184,166,0.15);color:var(--teal);}
+.tg.fe{background:rgba(59,130,246,0.12);color:#93c5fd;}
+/* VALUES PILL */
+.vp{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;}
+.vp.str{background:rgba(20,184,166,0.15);color:var(--teal);border:1px solid rgba(20,184,166,0.3);}
+.vp.gd{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);}
+.vp.mo2{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.2);}
+.vp.lw{background:rgba(255,255,255,0.06);color:var(--g1);border:1px solid var(--border);}
+.vp.pe{background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2);}
+.ab{width:26px;height:26px;border-radius:5px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;transition:all 0.15s;background:rgba(255,255,255,0.05);color:var(--g1);}
+.ab:hover{background:rgba(255,255,255,0.1);color:var(--white);}
+.ab.fl{background:rgba(212,168,67,0.2);color:var(--gold);}
+/* LOADING */
+.lo{position:absolute;inset:0;z-index:50;background:rgba(7,17,31,0.93);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+.lo.hidden{display:none;}
+.lr{width:52px;height:52px;border-radius:50%;border:3px solid rgba(212,168,67,0.15);border-top-color:var(--gold);animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lt{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--gold);}
+.lp{width:230px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;}
+.lb{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));border-radius:2px;width:0%;transition:width 0.4s ease;}
+.es{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;text-align:center;gap:12px;}
+.ei{font-size:44px;opacity:0.2;}
+.et{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:rgba(255,255,255,0.3);}
+.ed{font-size:12px;color:var(--g2);max-width:300px;line-height:1.6;}
+/* PAGINATION */
+.pg{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border);background:rgba(7,17,31,0.8);}
+.pi{font-size:11px;color:var(--g1);}
+.pbs{display:flex;gap:4px;}
+.pb{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--g1);font-family:'DM Sans',sans-serif;}
+.pb:hover,.pb.active{background:rgba(212,168,67,0.15);color:var(--gold);border-color:var(--bgold);}
+.pb:disabled{opacity:0.3;pointer-events:none;}
+/* DETAIL PANEL */
+.dp{position:fixed;right:0;top:0;bottom:0;width:472px;z-index:200;background:var(--navy-2);border-left:1px solid var(--bgold);box-shadow:-20px 0 60px rgba(0,0,0,0.6);transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
+.dp.open{transform:translateX(0);}
+/* HERO */
+.dph{padding:18px 20px;border-bottom:1px solid var(--border);background:rgba(13,31,53,0.9);flex-shrink:0;}
+.dpht{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.dpn{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;}
+.dps{font-size:11px;color:var(--g1);margin-top:2px;}
+.dpc{width:27px;height:27px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);color:var(--g1);font-size:14px;border:none;transition:all 0.15s;flex-shrink:0;}
+.dpc:hover{background:rgba(255,255,255,0.12);color:var(--white);}
+/* SCORE DUO */
+.sdu{display:grid;grid-template-columns:1fr 1px 1fr;background:rgba(0,0,0,0.2);border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.sh{padding:13px 16px;text-align:center;}
+.sdiv{background:var(--border);}
+.shl{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:5px;}
+.shl.w{color:var(--gold);}.shl.v{color:var(--teal);}
+.shn{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1;}
+.shn.w{color:var(--gold);}.shn.v{color:var(--teal);}
+.shs{font-size:10px;color:var(--g1);margin-top:2px;}
+.rbw{margin-top:10px;}
+.rbl{display:flex;justify-content:space-between;font-size:10px;color:var(--g1);margin-bottom:4px;}
+.rbt{height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.rbf{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold) 0%,var(--teal) 100%);transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+/* TABS */
+.dpt{display:flex;border-bottom:1px solid var(--border);background:rgba(7,17,31,0.6);flex-shrink:0;}
+.dptb{flex:1;padding:10px 6px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;transition:all 0.2s;color:var(--g1);border-bottom:2px solid transparent;letter-spacing:0.3px;text-transform:uppercase;}
+.dptb:hover{color:var(--white);}
+.dptb.active{color:var(--white);border-bottom-color:var(--gold);}
+.dptb.vt.active{border-bottom-color:var(--teal);color:var(--teal);}
+/* PANES */
+.dpcont{flex:1;overflow-y:auto;}
+.pane{display:none;padding:18px 20px;}
+.pane.active{display:block;}
+.dst{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:10px;}
+.drow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.drow:last-child{border-bottom:none;}
+.drl{font-size:12px;color:var(--g1);}
+.drv{font-size:13px;font-weight:600;color:var(--white);font-variant-numeric:tabular-nums;}
+.bki{margin-bottom:9px;}
+.bkh{display:flex;justify-content:space-between;margin-bottom:4px;}
+.bkn{font-size:11px;color:var(--g1);}
+.bkp{font-size:11px;font-weight:700;color:var(--white);}
+.bkt{height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;}
+.bkf{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2));border-radius:2px;}
+.rb{margin-top:12px;padding:11px 13px;border-radius:8px;background:rgba(212,168,67,0.07);border:1px solid var(--bgold);font-size:12px;color:var(--g1);line-height:1.6;}
+.rb strong{color:var(--white);display:block;margin-bottom:2px;}
+.adu{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px;}
+.da{padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid;transition:all 0.2s;font-family:'DM Sans',sans-serif;text-align:center;}
+.da.pr{background:linear-gradient(135deg,var(--gold),var(--gold-2));color:var(--navy);border-color:transparent;}
+.da.pr:hover{transform:translateY(-1px);}
+.da.se{background:rgba(255,255,255,0.05);color:var(--g1);border-color:var(--border);}
+.da.se:hover{background:rgba(255,255,255,0.1);color:var(--white);}
+/* VALUES PANEL STYLES */
+.vpw{display:flex;flex-direction:column;gap:18px;}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.vcard{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;padding:11px 13px;transition:all 0.3s;}
+.vcard.matched{border-color:rgba(20,184,166,0.35);background:rgba(20,184,166,0.06);}
+.vcard.partial{border-color:rgba(212,168,67,0.3);background:rgba(212,168,67,0.05);}
+.vcard.unmatched{opacity:0.5;}
+.vci{font-size:19px;margin-bottom:5px;}
+.vcn{font-size:11px;font-weight:700;color:var(--white);margin-bottom:3px;}
+.vcn.matched{color:var(--teal);}.vcn.partial{color:var(--gold);}
+.vce{font-size:10px;color:var(--g1);line-height:1.4;}
+.vcsc{display:flex;align-items:center;gap:5px;margin-top:5px;}
+.vcd{display:flex;gap:2px;}
+.vdot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.1);}
+.vdot.ft{background:var(--teal);}.vdot.fg{background:var(--gold);}.vdot.fa{background:var(--amber);}
+.vcsl{font-size:10px;color:var(--g1);}
+/* SIGNALS */
+.sig{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:7px;transition:border-color 0.2s;}
+.sig:hover{border-color:rgba(212,168,67,0.2);}
+.sigh{display:flex;align-items:flex-start;gap:9px;margin-bottom:5px;}
+.stb{padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.st-p{background:rgba(168,85,247,0.15);color:var(--purple);}
+.st-a{background:rgba(59,130,246,0.12);color:#93c5fd;}
+.st-n{background:rgba(236,72,153,0.12);color:#f472b6;}
+.st-f{background:rgba(20,184,166,0.12);color:var(--teal);}
+.st-l{background:rgba(59,130,246,0.15);color:#60a5fa;}
+.st-np{background:rgba(34,197,94,0.12);color:var(--green);}
+.sigt{font-size:12px;font-weight:600;color:var(--white);line-height:1.3;}
+.sigb{font-size:11px;color:var(--g1);line-height:1.5;}
+.siga{font-size:10px;color:var(--teal);margin-top:5px;font-style:italic;}
+.sigr{display:flex;align-items:center;gap:5px;margin-top:6px;}
+.srl{font-size:10px;color:var(--g2);}
+.srb{flex:1;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;}
+.srf{height:100%;border-radius:2px;background:var(--teal);}
+.srp{font-size:10px;font-weight:700;color:var(--teal);}
+/* OUTREACH ANGLE */
+.oa{background:linear-gradient(135deg,rgba(20,184,166,0.08),rgba(212,168,67,0.06));border:1px solid rgba(20,184,166,0.25);border-radius:10px;padding:14px;}
+.oah{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.oat{font-size:12px;font-weight:700;color:var(--teal);}
+.oab{font-size:12px;color:var(--g1);line-height:1.6;}
+.oab strong{color:var(--white);}
+.oatp{margin-top:9px;display:flex;flex-direction:column;gap:5px;}
+.oap{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:var(--g1);line-height:1.4;}
+.oap::before{content:"→";color:var(--teal);flex-shrink:0;margin-top:1px;}
+/* AI LOADING */
+.ail{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 20px;gap:13px;text-align:center;}
+.ailr{width:38px;height:38px;border-radius:50%;border:2px solid rgba(20,184,166,0.15);border-top-color:var(--teal);animation:spin 0.9s linear infinite;}
+.ailt{font-size:13px;font-weight:600;color:var(--teal);}
+.ails{font-size:11px;color:var(--g1);line-height:1.5;}
+.aisteps{display:flex;flex-direction:column;gap:4px;align-self:stretch;}
+.aist{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--g2);padding:3px 0;}
+.aist.done{color:var(--green);}.aist.act{color:var(--teal);}
+.aistd{width:5px;height:5px;border-radius:50%;background:var(--g3);flex-shrink:0;}
+.aist.done .aistd{background:var(--green);}
+.aist.act .aistd{background:var(--teal);animation:blink 1s ease-in-out infinite;}
+.na{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:38px 20px;gap:12px;text-align:center;}
+.nai{font-size:34px;opacity:0.22;}
+.nat{font-size:14px;font-weight:700;color:rgba(255,255,255,0.35);}
+.nad{font-size:12px;color:var(--g2);line-height:1.5;max-width:260px;}
+.anb{margin-top:4px;padding:10px 22px;border-radius:8px;background:linear-gradient(135deg,rgba(20,184,166,0.2),rgba(20,184,166,0.1));border:1px solid rgba(20,184,166,0.4);color:var(--teal);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.25s;font-family:'Syne',sans-serif;}
+.anb:hover{background:linear-gradient(135deg,rgba(20,184,166,0.3),rgba(20,184,166,0.15));transform:translateY(-1px);}
+.anb:disabled{opacity:0.4;pointer-events:none;}
+.aierr{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:13px;font-size:12px;color:rgba(239,68,68,0.8);line-height:1.5;}
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;z-index:999;padding:10px 15px;border-radius:8px;background:var(--navy-3);border:1px solid var(--bgold);font-size:12px;font-weight:500;color:var(--white);box-shadow:0 8px 28px rgba(0,0,0,0.4);transform:translateY(70px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+.toast.show{transform:translateY(0);opacity:1;}
+/* CONTENT CARDS — real linked articles/podcasts */
+.ccard{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:13px 14px;transition:all 0.2s;animation:rowIn 0.35s ease both;}
+.ccard:hover{border-color:rgba(20,184,166,0.3);background:rgba(20,184,166,0.04);}
+.ccard-top{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.ccard-title{font-size:13px;font-weight:600;line-height:1.35;margin-bottom:7px;}
+.ccard-link{color:var(--white);text-decoration:none;transition:color 0.15s;}
+.ccard-link:hover{color:var(--teal);}
+.ccard-link:hover .ext-icon{opacity:1;}
+.ext-icon{font-size:10px;opacity:0.4;margin-left:3px;transition:opacity 0.15s;}
+.ccard-summary{font-size:11px;color:var(--g1);line-height:1.55;margin-bottom:10px;}
+.ccard-divider{height:1px;background:rgba(255,255,255,0.05);margin-bottom:9px;}
+.ccard-footer{display:flex;flex-direction:column;gap:7px;}
+.ccard-gcutie{display:flex;gap:6px;align-items:flex-start;}
+.ccard-tie-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--teal);flex-shrink:0;margin-top:1px;padding-top:1px;}
+.ccard-tie-text{font-size:11px;color:var(--teal);line-height:1.45;opacity:0.85;}
+.ccard-talking{display:flex;gap:6px;align-items:flex-start;background:rgba(212,168,67,0.06);border:1px solid rgba(212,168,67,0.15);border-radius:6px;padding:7px 9px;}
+.ccard-tp-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--gold);flex-shrink:0;margin-top:1px;white-space:nowrap;}
+.ccard-tp-text{font-size:11px;color:var(--off);line-height:1.45;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon" role="img" aria-label="GCU logo">G</div>
+    <div><div class="brand-name">GCU Advancement</div><div class="brand-sub">Lead Discovery Engine v3</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-pill"><div class="sdot"></div>Values Intelligence Active</div>
+    <button class="tbtn" onclick="exportCSV()" aria-label="Export CSV">⬇ Export CSV</button>
+    <button class="tbtn" onclick="exportFlagged()" aria-label="Export Flagged">⭐ Flagged</button>
+    <button class="tbtn gold" onclick="runDiscovery()" aria-label="Run Discovery">⚡ Run Discovery</button>
+  </div>
+</div>
+<!-- PROXY CONFIG BANNER -->
+<div id="proxyBanner" style="background:rgba(20,184,166,0.08);border-bottom:1px solid rgba(20,184,166,0.25);padding:9px 28px;display:flex;align-items:center;gap:12px;font-size:12px;color:#5eead4;">
+  <span style="white-space:nowrap;">🔗 Cloudflare Proxy URL:</span>
+  <input id="proxyUrlInput" type="text" placeholder="Paste your Worker URL here — e.g. https://gcu-proxy.yourname.workers.dev" style="flex:1;max-width:520px;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.07);border:1px solid rgba(20,184,166,0.3);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;outline:none;">
+  <button onclick="saveProxy()" style="padding:5px 13px;border-radius:6px;background:rgba(20,184,166,0.2);border:1px solid rgba(20,184,166,0.4);color:#2dd4bf;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Save</button>
+  <span id="proxyStatus" style="white-space:nowrap;color:var(--amber);">⚠ Not configured</span>
+  <a href="https://workers.cloudflare.com" target="_blank" style="color:rgba(255,255,255,0.3);font-size:11px;white-space:nowrap;text-decoration:none;">Get free Worker →</a>
+</div>
+<div class="stats-bar">
+  <div class="stat-cell"><div class="stat-label">Total Prospects</div><div class="stat-value gold" id="s1">—</div><div class="stat-sub">Current batch</div></div>
+  <div class="stat-cell"><div class="stat-label">A / A+ Leads</div><div class="stat-value green" id="s2">—</div><div class="stat-sub">Top wealth priority</div></div>
+  <div class="stat-cell"><div class="stat-label">Avg Wealth Score</div><div class="stat-value" id="s3">—</div><div class="stat-sub">Out of 100</div></div>
+  <div class="stat-cell"><div class="stat-label">Values Profiled</div><div class="stat-value amber" id="s4">0</div><div class="stat-sub">AI analyses run</div></div>
+  <div class="stat-cell"><div class="stat-label">Est. Gift Pool</div><div class="stat-value gold" id="s5">—</div><div class="stat-sub">Top 20% prospects</div></div>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="sb-sect">
+      <div class="sb-title">🎯 Discovery Parameters</div>
+      <div class="cg"><label class="cl">Region</label><select class="cs" id="c1"><option value="az" selected>Arizona</option><option value="ca">California</option><option value="tx">Texas</option><option value="national">Nationwide</option></select></div>
+      <div class="cg"><label class="cl">Prospect Type</label><select class="cs" id="c2"><option value="parent" selected>Student Parents</option><option value="alumni">Alumni</option><option value="corporate">Corporate</option></select></div>
+      <div class="cg"><label class="cl">Wealth Tier</label><select class="cs" id="c3"><option value="high" selected>High Net Worth ($1M+)</option><option value="ultra">Ultra HNW ($5M+)</option><option value="mid">Mid Tier ($500K+)</option><option value="all">All Tiers</option></select></div>
+      <div class="cg"><label class="cl">Batch Size</label><select class="cs" id="c4"><option value="50">50 Prospects</option><option value="100">100 Prospects</option><option value="250" selected>250 Prospects</option><option value="500">500 Prospects</option></select></div>
+      <div class="cg"><label class="cl">Score Range</label><div class="rr"><input class="ri" type="number" id="c5" value="0" min="0" max="100"><span style="color:var(--g2);font-size:11px;align-self:center;">—</span><input class="ri" type="number" id="c6" value="100" min="0" max="100"></div></div>
+    </div>
+    <div class="sb-sect">
+      <div class="sb-title">🔌 Data Sources</div>
+      <div class="fr"><span class="fn">Census Income</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle Census Income data source" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+      <div class="fr"><span class="fn">Attom Property</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle Attom Property data source" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+      <div class="fr"><span class="fn">IRS 990 Giving</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle IRS 990 Giving data source" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+      <div class="fr"><span class="fn">FEC Donations</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle FEC Donations data source" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+      <div class="fr"><span class="fn">OpenCorporates</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle OpenCorporates data source" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+      <div class="fr"><span class="fn" style="color:var(--teal);">🧭 AI Values Analysis</span><div class="tog on" role="switch" aria-checked="true" aria-label="Toggle AI Values Analysis" onclick="this.classList.toggle('on');this.setAttribute('aria-checked',this.classList.contains('on'))"></div></div>
+    </div>
+    <div class="sb-sect">
+      <div class="sb-title">⚖️ Score Weights</div>
+      <div class="fr"><span class="fn">Home Value</span><span style="font-size:10px;color:var(--gold);font-weight:700;">40 pts</span></div>
+      <div class="fr"><span class="fn">Income Level</span><span style="font-size:10px;color:var(--gold);font-weight:700;">30 pts</span></div>
+      <div class="fr"><span class="fn">Giving History</span><span style="font-size:10px;color:var(--gold);font-weight:700;">30 pts</span></div>
+      <div class="fr"><span class="fn">GCU Engagement</span><span style="font-size:10px;color:var(--gold);font-weight:700;">20 pts</span></div>
+      <div class="fr"><span class="fn" style="color:var(--teal);">Values Alignment</span><span style="font-size:10px;color:var(--teal);font-weight:700;">0–100 pts</span></div>
+    </div>
+    <button class="disc-btn" id="discBtn" onclick="runDiscovery()">⚡ Run Discovery</button>
+  </div>
+  <div class="content">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="sw"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input class="si" id="si" type="text" placeholder="Search name, ZIP, city..." oninput="applyF()"></div>
+        <div class="gfw"><div class="gp all active" onclick="setGF('all',this)" role="button" aria-label="Filter: All grades">All</div><div class="gp gA" onclick="setGF('A',this)" role="button" aria-label="Filter: A+ and A grades">A+/A</div><div class="gp gB" onclick="setGF('B',this)" role="button" aria-label="Filter: B grades">B</div><div class="gp gC" onclick="setGF('C',this)" role="button" aria-label="Filter: C grades">C</div><div class="gp gD" onclick="setGF('D',this)" role="button" aria-label="Filter: D grades">D</div></div>
+        <span class="cb" id="vc">0 leads</span>
+      </div>
+      <div class="toolbar-right">
+        <select class="ss" id="ss" onchange="applyF()"><option value="sd">Score: High → Low</option><option value="sa">Score: Low → High</option><option value="na">Name A → Z</option><option value="hv">Home Value: High</option><option value="in">Income: High</option></select>
+        <button class="tbb s" onclick="flagAll()" aria-label="Flag all filtered prospects">⭐ Flag All</button>
+        <button class="tbb d" onclick="clearAll()" aria-label="Clear all flags and selections">✕ Clear</button>
+      </div>
+    </div>
+    <div class="caw">
+      <div class="lo hidden" id="loverlay">
+        <div class="lr"></div>
+        <div class="lt" id="ltitle">Discovering Prospects</div>
+        <div style="font-size:12px;color:var(--g1);" id="lsub">Initializing...</div>
+        <div class="lp"><div class="lb" id="lbar"></div></div>
+      </div>
+      <div class="es" id="emptyS">
+        <div class="ei">🔭</div>
+        <div class="et">No Leads Discovered Yet</div>
+        <div class="ed">Click <strong style="color:var(--gold)">Run Discovery</strong> to find and rank prospects. Click any prospect to open their full profile — including <strong style="color:var(--teal)">AI Values Intelligence</strong> that researches podcasts, articles, faith ties, and GCU mission alignment.</div>
+      </div>
+      <div class="tw" id="tw" style="display:none;">
+        <table>
+          <thead><tr>
+            <th style="width:32px;"><input type="checkbox" class="rc" id="sa" onchange="selAll(this)"></th>
+            <th>Prospect</th><th>Score ↓</th><th>Grade</th><th>Home Value</th><th>Income</th>
+            <th style="color:var(--teal);">Values Align.</th><th>Indicators</th><th>Location</th><th style="width:64px;">Actions</th>
+          </tr></thead>
+          <tbody id="lb"></tbody>
+        </table>
+      </div>
+      <div class="pg" id="pgbar" style="display:none;"><div class="pi" id="pgi"></div><div class="pbs" id="pgbs"></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="dp" id="detailP">
+  <div class="dph">
+    <div class="dpht">
+      <div><div class="dpn" id="dpN">—</div><div class="dps" id="dpS">—</div></div>
+      <button class="dpc" onclick="closeD()" aria-label="Close detail panel">✕</button>
+    </div>
+    <div class="sdu">
+      <div class="sh"><div class="shl w">Wealth Score</div><div class="shn w" id="dpW">—</div><div class="shs" id="dpWG">—</div></div>
+      <div class="sdiv"></div>
+      <div class="sh"><div class="shl v">Values Score</div><div class="shn v" id="dpV">—</div><div class="shs" id="dpVL">Not analyzed</div></div>
+    </div>
+    <div class="rbw">
+      <div class="rbl"><span>Donor Readiness</span><span id="dpRP">—</span></div>
+      <div class="rbt"><div class="rbf" id="dpRF" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="dpt" role="tablist">
+    <div class="dptb active" onclick="swTab('wealth',this)" role="tab" aria-selected="true" aria-controls="pane-wealth">💰 Wealth</div>
+    <div class="dptb vt" onclick="swTab('values',this)" role="tab" aria-selected="false" aria-controls="pane-values">🧭 Values Intel</div>
+    <div class="dptb" onclick="swTab('contact',this)" role="tab" aria-selected="false" aria-controls="pane-contact">📋 Contact</div>
+  </div>
+  <div class="dpcont">
+    <div class="pane active" id="pane-wealth">
+      <div class="dst">Wealth Indicators</div>
+      <div class="drow"><span class="drl">Home Value</span><span class="drv" id="dw1">—</span></div>
+      <div class="drow"><span class="drl">Household Income</span><span class="drv" id="dw2">—</span></div>
+      <div class="drow"><span class="drl">ZIP Median Income</span><span class="drv" id="dw3">—</span></div>
+      <div class="drow"><span class="drl">Prior Charitable Giving</span><span class="drv" id="dw4">—</span></div>
+      <div class="drow"><span class="drl">Business Owner</span><span class="drv" id="dw5">—</span></div>
+      <div class="drow"><span class="drl">FEC Political Donations</span><span class="drv" id="dw6">—</span></div>
+      <div style="margin-top:16px;"><div class="dst">Score Breakdown</div><div id="dpBK"></div></div>
+      <div class="rb" id="dpREC"></div>
+      <div class="adu"><div class="da pr" id="dpOB" role="button" aria-label="Add prospect to outreach campaign">📧 Add to Outreach</div><div class="da se" id="dpFB" role="button" aria-label="Flag or unflag this prospect">⭐ Flag Prospect</div></div>
+    </div>
+    <div class="pane" id="pane-values"><div id="valC"></div></div>
+    <div class="pane" id="pane-contact">
+      <div class="dst">Contact Information</div>
+      <div class="drow"><span class="drl">Full Name</span><span class="drv" id="dc1">—</span></div>
+      <div class="drow"><span class="drl">Email</span><span class="drv" id="dc2" style="font-size:11px;">—</span></div>
+      <div class="drow"><span class="drl">City / State / ZIP</span><span class="drv" id="dc3">—</span></div>
+      <div class="drow"><span class="drl">Connection Type</span><span class="drv" id="dc4">—</span></div>
+      <div class="drow"><span class="drl">Student ID</span><span class="drv" id="dc5">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA GENERATION ──────────────────────────────────────────────────────
+/*const FN=['James','Sarah','Michael','Jennifer','Robert','Linda','David','Patricia','William','Barbara','Richard','Susan','Joseph','Jessica','Thomas','Karen','Christopher','Lisa','Daniel','Matthew','Anthony','Mark','Donald','Steven','Paul','Andrew','Joshua','Kenneth','Kevin','Brian','George','Timothy','Ronald','Edward','Jason','Jeffrey','Ryan','Jacob','Gary','Nicholas'];
+const LN=['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Clark','Lewis','Robinson','Walker','Young','Hall','Allen','King','Wright','Scott','Torres','Nguyen','Hill','Flores','Green','Adams'];
+const LOCS=[
+  {city:'Scottsdale',state:'AZ',zip:'85254',med:115000,base:850000},
+  {city:'Paradise Valley',state:'AZ',zip:'85253',med:185000,base:2100000},
+  {city:'Gilbert',state:'AZ',zip:'85296',med:92000,base:520000},
+  {city:'Chandler',state:'AZ',zip:'85248',med:88000,base:490000},
+  {city:'Tempe',state:'AZ',zip:'85281',med:72000,base:380000},
+  {city:'Mesa',state:'AZ',zip:'85213',med:68000,base:340000},
+  {city:'Phoenix',state:'AZ',zip:'85016',med:78000,base:425000},
+  {city:'Cave Creek',state:'AZ',zip:'85331',med:105000,base:780000},
+  {city:'Fountain Hills',state:'AZ',zip:'85268',med:95000,base:620000},
+  {city:'Peoria',state:'AZ',zip:'85383',med:82000,base:450000},
+  {city:'Goodyear',state:'AZ',zip:'85395',med:86000,base:470000},
+  {city:'Glendale',state:'AZ',zip:'85308',med:65000,base:310000},
+];
+const CONNS=['Student Parent','Student Parent','Student Parent','Alumni','Corporate Donor','Community Member'];
+
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function fmtM(n){if(n>=1000000)return'$'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'$'+(n/1000).toFixed(0)+'K';return'$'+n;}
+function fmtF(n){return'$'+Number(n).toLocaleString();}
+
+function calcScore(p){
+  const h=p.hv>=2000000?40:p.hv>=1500000?36:p.hv>=1000000?30:p.hv>=750000?24:p.hv>=500000?18:p.hv>=350000?12:p.hv>=200000?6:2;
+  const i=p.inc>=400000?30:p.inc>=250000?25:p.inc>=150000?20:p.inc>=100000?14:p.inc>=75000?9:p.inc>=50000?5:1;
+  const z=p.zi>=200000?15:p.zi>=150000?12:p.zi>=100000?9:p.zi>=75000?6:p.zi>=50000?3:1;
+  const g=p.gv>=50000?30:p.gv>=25000?24:p.gv>=10000?18:p.gv>=5000?12:p.gv>=1000?7:p.gv>0?3:0;
+  const e=Math.round((p.eng/10)*20);
+  const b=(p.isBiz?10:0)+(p.isAl?10:0)+(p.isFEC?8:0)+(p.isBoard?8:0)+(p.isMulti?6:0)+(p.isExec?5:0)+(p.isPrior?5:0);
+  p.hs=h;p.is_=i;p.zs=z;p.gs=g;p.es=e;p.bs=b;
+  return Math.min(h+i+z+g+e+b,100);
+}
+function gradeOf(s){
+  if(s>=90)return{g:'A',c:'gb-ap'};if(s>=80)return{g:'A',c:'gb-a'};
+  if(s>=70)return{g:'B',c:'gb-bp'};if(s>=60)return{g:'B',c:'gb-b'};
+  if(s>=40)return{g:'C',c:'gb-c'};return{g:'D',c:'gb-d'};
+}
+function genP(id){
+  const loc=pick(LOCS);
+  const p={id,fn:pick(FN),ln:pick(LN),conn:pick(CONNS),city:loc.city,state:loc.state,zip:loc.zip,
+    hv:Math.round(loc.base*(0.5+Math.random()*1.7)/25000)*25000,
+    inc:Math.round(loc.med*(0.8+Math.random()*2.7)/5000)*5000,
+    zi:loc.med+rand(-8000,12000),gv:Math.random()<0.6?rand(0,50000):0,
+    eng:rand(0,10),isBiz:Math.random()<0.3,isAl:Math.random()<0.25,
+    isFEC:Math.random()<0.2,isBoard:Math.random()<0.15,
+    isMulti:Math.random()<0.18,isExec:Math.random()<0.2,isPrior:Math.random()<0.12,
+    flagged:false,sel:false,vs:null,vl:'Not analyzed',vd:null};
+  p.email=`${p.fn.toLowerCase()}.${p.ln.toLowerCase()}@email.com`;
+  p.name=`${p.ln}, ${p.fn}`;p.score=calcScore(p);
+  const gr=gradeOf(p.score);p.grade=gr.g;p.gc=gr.c;
+  p.est=Math.round(p.inc*(p.score/100)*0.05/500)*500;
+  p.tags=[];
+  if(p.isAl)p.tags.push({l:'Alumni',c:'al'});
+  if(p.isBiz)p.tags.push({l:'Business',c:'bz'});
+  if(p.isBoard)p.tags.push({l:'Board',c:'fa'});
+  if(p.isFEC)p.tags.push({l:'FEC Donor',c:'fe'});
+  return p;
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let ALL=[],FILT=[],gf='all',pg=1;
+const PGS=50;
+let curP=null;
+
+// ── DISCOVERY ────────────────────────────────────────────────────────────
+async function runDiscovery(){
+  const ov=document.getElementById('loverlay');
+  ov.classList.remove('hidden');
+  document.getElementById('emptyS').style.display='none';
+  document.getElementById('tw').style.display='none';
+  document.getElementById('pgbar').style.display='none';
+  document.getElementById('discBtn').disabled=true;
+  const steps=['Querying Census income data...','Pulling property records...','Cross-referencing IRS 990 filings...','Checking FEC political donations...','Scanning business registrations...','Matching student records...','Calculating wealth scores...','Ranking prospects...','Finalizing results...'];
+  let si=0;const bar=document.getElementById('lbar'),sub=document.getElementById('lsub');
+  await new Promise(res=>{
+    const iv=setInterval(()=>{
+      if(si<steps.length){sub.textContent=steps[si];bar.style.width=((si+1)/steps.length*100)+'%';si++;}
+      else{clearInterval(iv);const n=parseInt(document.getElementById('c4').value);ALL=Array.from({length:n},(_,i)=>genP(i+1));ALL.sort((a,b)=>b.score-a.score);res();}
+    },280);
+  });
+  ov.classList.add('hidden');
+  document.getElementById('tw').style.display='block';
+  document.getElementById('pgbar').style.display='flex';
+  document.getElementById('discBtn').disabled=false;
+  pg=1;applyF();updateStats();
+  showToast('✅ Discovery complete — '+ALL.length+' prospects ranked');
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────
+function updateStats(){
+  const t=ALL.length,a=ALL.filter(p=>['A+','A'].includes(p.grade)).length;
+  const avg=t?Math.round(ALL.reduce((s,p)=>s+p.score,0)/t):0;
+  const analyzed=ALL.filter(p=>p.vs!==null).length;
+  const pool=ALL.slice(0,Math.ceil(t*0.2)).reduce((s,p)=>s+p.est,0);
+  document.getElementById('s1').textContent=t.toLocaleString();
+  document.getElementById('s2').textContent=a;
+  document.getElementById('s3').textContent=avg;
+  document.getElementById('s4').textContent=analyzed;
+  document.getElementById('s5').textContent=fmtM(pool);
+}
+
+// ── FILTERS ───────────────────────────────────────────────────────────────
+function setGF(g,el){gf=g;document.querySelectorAll('.gp').forEach(p=>p.classList.remove('active'));el.classList.add('active');pg=1;applyF();}
+function applyF(){
+  const q=document.getElementById('si').value.toLowerCase();
+  const s=document.getElementById('ss').value;
+  const mn=parseInt(document.getElementById('c5').value)||0,mx=parseInt(document.getElementById('c6').value)||100;
+    FILT=ALL.filter(p => {
+      if(gf==='A' && !['A'].includes(p.grade)) return false;
+      if(gf==='B' && !['B'].includes(p.grade)) return false;
+      if(gf==='C' && p.grade !== 'C') return false;
+      if(gf==='D' && p.grade !== 'D') return false;
+    if(p.score<mn||p.score>mx)return false;
+    if(q&&!p.name.toLowerCase().includes(q)&&!p.city.toLowerCase().includes(q)&&!p.zip.includes(q))return false;
+    return true;
+  });
+  if(s==='sd')FILT.sort((a,b)=>b.score-a.score);
+  else if(s==='sa')FILT.sort((a,b)=>a.score-b.score);
+  else if(s==='na')FILT.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(s==='hv')FILT.sort((a,b)=>b.hv-a.hv);
+  else if(s==='in')FILT.sort((a,b)=>b.inc-a.inc);
+  document.getElementById('vc').textContent=FILT.length+' leads';
+  renderTbl();renderPag();
+}
+
+*/// ── TABLE ──────────────────────────────────────────────────────────────────
+function vcls(s){if(s===null)return'pe';if(s>=75)return'str';if(s>=55)return'gd';if(s>=35)return'mo2';return'lw';}
+function vtxt(s){if(s===null)return'⏳ Pending';if(s>=75)return'Strong Align';if(s>=55)return'Good Align';if(s>=35)return'Moderate';return'Low Align';}
+
+function renderTbl(){
+  const tbody=document.getElementById('lb');
+  const start=(pg-1)*PGS;const page=FILT.slice(start,start+PGS);
+  tbody.innerHTML='';
+  if(!FILT.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:44px;color:var(--g2);">No prospects match your filters.</td></tr>';return;}
+  page.forEach((p,idx)=>{
+    const sc=p.score>=80?'var(--green)':p.score>=60?'var(--blue)':p.score>=40?'var(--amber)':'var(--red)';
+    const mc=p.hv>=1000000?'hi':p.hv>=500000?'mi':'lo';
+    const tags=p.tags.slice(0,3).map(t=>`<span class="tg ${t.c}">${t.l}</span>`).join('');
+    const val=`<span class="vp ${vcls(p.vs)}">${vtxt(p.vs)}</span>`;
+    const tr=document.createElement('tr');
+    tr.className=p.flagged?'fl':'';tr.dataset.id=p.id;tr.style.animationDelay=(idx*0.015)+'s';
+    tr.innerHTML=`
+      <td><input type="checkbox" class="rc" ${p.sel?'checked':''} onchange="togSel(${p.id},this)" onclick="event.stopPropagation()"></td>
+      <td onclick="openD(${p.id})"><div class="nc"><div class="nm">${p.ln}, ${p.fn}</div><div class="ns">${p.conn}</div></div></td>
+      <td onclick="openD(${p.id})"><div class="sc"><span class="sn" style="color:${sc}">${p.score}</span><div class="sbg"><div class="sbf" style="width:${p.score}%;background:${sc}"></div></div></div></td>
+      <td onclick="openD(${p.id})"><div class="gb ${p.gc}">${p.grade}</div></td>
+      <td onclick="openD(${p.id})" class="mo ${mc}">${fmtM(p.hv)}</td>
+      <td onclick="openD(${p.id})" class="mo ${p.inc>=150000?'hi':p.inc>=75000?'mi':'lo'}">${fmtM(p.inc)}</td>
+      <td onclick="openD(${p.id})">${val}</td>
+      <td onclick="openD(${p.id})"><div class="tr">${tags||'<span style="color:var(--g2);font-size:10px;">None</span>'}</div></td>
+      <td onclick="openD(${p.id})" style="color:var(--g1);font-size:11px;">${p.city}, ${p.state} ${p.zip}</td>
+      <td><div style="display:flex;gap:4px;"><button class="ab ${p.flagged?'fl':''}" onclick="togFlag(${p.id})" aria-label="${p.flagged?'Unflag':'Flag'} prospect">⭐</button><button class="ab" onclick="openD(${p.id})" aria-label="View details for ${p.ln}, ${p.fn}">→</button></div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderPag(){
+  const total=FILT.length,pages=Math.ceil(total/PGS);
+  const s=(pg-1)*PGS+1,e=Math.min(pg*PGS,total);
+  document.getElementById('pgi').textContent=total?`Showing ${s}–${e} of ${total}`:'No results';
+  const btns=document.getElementById('pgbs');btns.innerHTML='';
+  const prev=Object.assign(document.createElement('button'),{className:'pb',textContent:'← Prev',disabled:pg<=1});
+  prev.onclick=()=>{pg--;renderTbl();renderPag();};btns.appendChild(prev);
+    const windowSize = 7;
+    const half = Math.floor(windowSize / 2);
+    let startPage = Math.max(1, pg - half);
+    let endPage = Math.min(pages, startPage + windowSize - 1);
+    if (endPage - startPage < windowSize - 1) startPage = Math.max(1, endPage - windowSize + 1);
+    for (let i = startPage; i <= endPage; i++) {
+      const b = Object.assign(document.createElement('button'), { className: 'pb' + (i === pg ? ' active' : ''), textContent: i });
+      b.onclick = (() => { const ii = i; return () => { pg = ii; renderTbl(); renderPag(); }; })();
+      btns.appendChild(b);
+    }
+  const next=Object.assign(document.createElement('button'),{className:'pb',textContent:'Next →',disabled:pg>=pages});
+  next.onclick=()=>{pg++;renderTbl();renderPag();};btns.appendChild(next);
+}
+
+// ── ACTIONS ────────────────────────────────────────────────────────────────
+function togFlag(id){const p=ALL.find(x=>x.id===id);if(!p)return;p.flagged=!p.flagged;renderTbl();updateStats();showToast(p.flagged?'⭐ Flagged':'Flag removed');}
+function togSel(id,cb){const p=ALL.find(x=>x.id===id);if(p)p.sel=cb.checked;}
+function selAll(mc){const s=(pg-1)*PGS;FILT.slice(s,s+PGS).forEach(p=>p.sel=mc.checked);renderTbl();}
+function flagAll(){FILT.forEach(p=>p.flagged=true);renderTbl();updateStats();showToast('⭐ '+FILT.length+' flagged');}
+function clearAll(){ALL.forEach(p=>{p.sel=false;p.flagged=false;});document.getElementById('sa').checked=false;renderTbl();updateStats();showToast('✕ Cleared');}
+
+// ── DETAIL PANEL ──────────────────────────────────────────────────────────
+function openD(id){
+  const p=ALL.find(x=>x.id===id);if(!p)return;curP=p;
+  const gc={'A+':'var(--green)','A':'#4ade80','B+':'#60a5fa','B':'var(--blue)','C':'var(--amber)','D':'var(--red)'};
+  document.getElementById('dpN').textContent=p.fn+' '+p.ln;
+  document.getElementById('dpS').textContent=p.conn+' · '+p.city+', '+p.state;
+  document.getElementById('dpW').textContent=p.score;
+  document.getElementById('dpWG').textContent='Grade: '+p.grade;
+  if(p.vs!==null){document.getElementById('dpV').textContent=p.vs;document.getElementById('dpVL').textContent=vtxt(p.vs);}
+  else{document.getElementById('dpV').textContent='—';document.getElementById('dpVL').textContent='Not analyzed';}
+  const readiness=p.vs!==null?Math.round(p.score*0.6+p.vs*0.4):Math.round(p.score*0.6);
+  document.getElementById('dpRP').textContent=readiness+'%';
+  document.getElementById('dpRF').style.width=readiness+'%';
+  // Wealth
+  document.getElementById('dw1').textContent=fmtF(p.hv);
+  document.getElementById('dw2').textContent=fmtF(p.inc)+'/yr';
+  document.getElementById('dw3').textContent=fmtF(p.zi)+' median';
+  document.getElementById('dw4').textContent=p.gv>0?fmtF(p.gv):'Not on record';
+  document.getElementById('dw5').textContent=p.isBiz?'✅ Yes':'—';
+  document.getElementById('dw6').textContent=p.isFEC?'On record':'—';
+  const bks=[{n:'🏠 Home Value',v:p.hs,m:40},{n:'💰 Income',v:p.is_,m:30},{n:'🎁 Giving History',v:p.gs,m:30},{n:'🏛️ GCU Engagement',v:p.es,m:20},{n:'📍 ZIP Wealth',v:p.zs,m:15},{n:'⭐ Bonuses',v:p.bs,m:59}];
+  document.getElementById('dpBK').innerHTML=bks.map(b=>`<div class="bki"><div class="bkh"><span class="bkn">${b.n}</span><span class="bkp">${b.v} / ${b.m}</span></div><div class="bkt"><div class="bkf" style="width:${Math.round(b.v/b.m*100)}%"></div></div></div>`).join('');
+  const recs={'A+':'<strong>Immediate personal outreach.</strong> Exceptional capacity. Senior gift officer assignment. Major gift $50K+.','A':'<strong>High-priority personal outreach.</strong> Phone or meeting within 2 weeks. Target $25K–$50K.','B+':'<strong>Personalized campaign.</strong> Personal email + follow-up call. Target $10K–$25K.','B':'<strong>Email series outreach.</strong> Invite to campus events. Target $5K–$10K.','C':'<strong>Standard outreach.</strong> Mass email. Annual fund potential.','D':'<strong>Newsletter only.</strong> Revisit in 12 months.'};
+  document.getElementById('dpREC').innerHTML=recs[p.grade]||'';
+  document.getElementById('dpFB').textContent=p.flagged?'⭐ Unflag':'⭐ Flag';
+  document.getElementById('dpFB').onclick=()=>{togFlag(id);document.getElementById('dpFB').textContent=ALL.find(x=>x.id===id).flagged?'⭐ Unflag':'⭐ Flag';};
+  document.getElementById('dpOB').onclick=()=>{p.flagged=true;renderTbl();updateStats();showToast('📧 Added to outreach');};
+  // Contact
+  document.getElementById('dc1').textContent=p.fn+' '+p.ln;
+  document.getElementById('dc2').textContent=p.email;
+  document.getElementById('dc3').textContent=p.city+', '+p.state+' '+p.zip;
+  document.getElementById('dc4').textContent=p.conn;
+  document.getElementById('dc5').textContent='STU-'+String(p.id).padStart(5,'0');
+  // Values — auto-trigger research if not yet run
+  renderValPane(p);
+  swTab('values', document.querySelectorAll('.dptb')[1]);
+  document.getElementById('detailP').classList.add('open');
+  // Auto-start search if proxy is configured and this prospect hasn't been analyzed yet
+  if(!p.vd && getProxyUrl()){
+    setTimeout(()=>runVA(id), 300);
+  }
+}
+
+function closeD(){document.getElementById('detailP').classList.remove('open');curP=null;}
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('detailP');
+  if(panel.classList.contains('open')&&!panel.contains(e.target)&&!e.target.closest('tr'))closeD();
+});
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function swTab(name,el){
+  document.querySelectorAll('.dptb').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  const tabs=document.querySelectorAll('.dptb');
+  const map={wealth:0,values:1,contact:2};
+  tabs[map[name]].classList.add('active');
+  document.getElementById('pane-'+name).classList.add('active');
+}
+
+// ── VALUES PANE ────────────────────────────────────────────────────────────
+function renderValPane(p){
+  const vc=document.getElementById('valC');
+  if(p.vd){vc.innerHTML=buildValHTML(p.vd,p);}
+  else{vc.innerHTML=`<div class="na"><div class="nai">🔍</div><div class="nat">Searching for content...</div><div class="nad">Looking up articles, podcasts, and interviews about <strong style="color:var(--white)">${p.fn} ${p.ln}</strong>. If the proxy URL is not configured yet, click the button below.</div><button class="anb" onclick="runVA(${p.id})">🔍 Find Articles &amp; Podcasts</button></div>`;}
+}
+
+// ── AI VALUES ANALYSIS (Claude API + Web Search) ──────────────────────────
+async function runVA(id){
+  const p=ALL.find(x=>x.id===id);if(!p)return;
+  const vc=document.getElementById('valC');
+  const steps=[
+    'Searching for podcast appearances...',
+    'Scanning LinkedIn & published articles...',
+    'Checking news mentions & press coverage...',
+    'Researching nonprofit & church affiliations...',
+    'Analyzing public social content...',
+    'Scoring GCU values alignment...',
+    'Building outreach strategy...'
+  ];
+  function stepsHTML(active){
+    return steps.map((s,i)=>`<div class="aist ${i<active?'done':i===active?'act':''}"><div class="aistd"></div>${s}</div>`).join('');
+  }
+  vc.innerHTML=`<div class="ail"><div class="ailr"></div><div class="ailt">Researching ${p.fn} ${p.ln}</div><div class="ails">Searching public records, media mentions, and social content to build a values profile aligned with GCU's mission...</div><div class="aisteps" id="aiST">${stepsHTML(0)}</div></div>`;
+
+  let si=0;
+  const iv=setInterval(()=>{si=Math.min(si+1,steps.length-1);const el=document.getElementById('aiST');if(el)el.innerHTML=stepsHTML(si);},900);
+
+  try{
+    const prompt=`You are a senior donor research analyst for Grand Canyon University (GCU), a private Christian university in Phoenix, Arizona.
+
+TASK: Use web search RIGHT NOW to find real, publicly available content about this person — articles they wrote, podcasts they appeared on, news coverage, company announcements, church affiliations, nonprofit roles, LinkedIn posts, or interviews. Find the actual URLs.
+
+PROSPECT:
+Name: ${p.fn} ${p.ln}
+Location: ${p.city}, ${p.state} ${p.zip}
+Connection: ${p.conn}
+Indicators: ${[p.isBiz?'Business owner':null,p.isExec?'Executive':null,p.isBoard?'Nonprofit board member':null,p.isAl?'GCU Alumni':null].filter(Boolean).join(', ')||'General prospect'}, Home ~${fmtM(p.hv)}, Income ~${fmtM(p.inc)}/yr, ${p.gv>0?'Charitable giving '+fmtF(p.gv)+'/yr':'No giving record on file'}
+
+GCU CORE VALUES (score all four):
+1. Christian Faith & Biblical Values — faith-based mission, chapel, biblical worldview
+2. Innovation & Entrepreneurship — Lope Innovation Lab, startup culture, tech programs
+3. Education & Lifelong Learning — first-gen students, life transformation, access to education
+4. Community Service & Giving Back — West Phoenix revitalization, Changing Lives Together campaign
+
+SEARCH INSTRUCTIONS:
+Search for "${p.fn} ${p.ln} ${p.city} Arizona" plus variations like their name + podcast, + interview, + LinkedIn, + church, + nonprofit, + CEO/founder, + news.
+If the exact person is not found, search for their likely company or professional field in ${p.city} AZ and find content that would still be relevant conversation material for a GCU gift officer.
+
+Return ONLY valid JSON (no markdown fences, no preamble):
+{
+  "valuesScore": <integer 0-100>,
+  "valuesSummary": "<2 sentences — what makes this person a strong or weak GCU values match, citing specific things you found>",
+  "gcuValues": [
+    {"name":"Christian Faith & Biblical Values","icon":"✝️","score":<0-5>,"status":"<matched|partial|unmatched>","evidence":"<1 sentence citing specific real evidence found>"},
+    {"name":"Innovation & Entrepreneurship","icon":"💡","score":<0-5>,"status":"<matched|partial|unmatched>","evidence":"<1 sentence>"},
+    {"name":"Education & Lifelong Learning","icon":"📚","score":<0-5>,"status":"<matched|partial|unmatched>","evidence":"<1 sentence>"},
+    {"name":"Community Service & Giving Back","icon":"🤝","score":<0-5>,"status":"<matched|partial|unmatched>","evidence":"<1 sentence>"}
+  ],
+  "content": [
+    {
+      "type": "<podcast|article|news|faith|linkedin|nonprofit|interview|video>",
+      "title": "<exact real title of the content>",
+      "source": "<publication, podcast name, or platform — e.g. 'Arizona Business Journal', 'How I Built This', 'LinkedIn'>",
+      "url": "<real URL — use actual URL found in search, or best available canonical URL>",
+      "date": "<publication date or year if found, else 'Recent'>",
+      "summary": "<2-3 sentences: what this content is actually about and what it reveals about their values or priorities>",
+      "gcuTie": "<1 sentence: the specific GCU value or program this content connects to, and why a gift officer should mention it>",
+      "talkingPoint": "<1 sentence: how to naturally bring this up in a donor conversation — e.g. 'You mentioned in your Forbes interview that education access was personal for you — that's exactly what our Canyon Scholars program does'>"
+    }
+  ],
+  "outreachAngle": {
+    "headline": "<10-14 word subject line for a cold outreach email to this person>",
+    "openingLine": "<1-2 sentence email opener that references something specific you found — reads like it was written by a human who did their homework>",
+    "why": "<2-3 sentences on the most compelling reason this specific person would give to GCU based on what you found>",
+    "talkingPoints": [
+      "<Point referencing a specific piece of content found — name it explicitly>",
+      "<Point tying their professional background to a GCU program or building>",
+      "<Point on the emotional/mission resonance — why GCU's work would matter to them personally>",
+      "<Ask framing — how to position the gift, referencing their giving capacity and values>"
+    ]
+  }
+}
+
+Include 4-6 content items. Prioritize items with real URLs. If a URL cannot be confirmed, use the most likely canonical URL (e.g. a LinkedIn profile URL, a podcast episode page). Every content item must have a talkingPoint that sounds natural in a real conversation.`;
+
+    const proxyUrl = getProxyUrl();
+    if(!proxyUrl){
+      clearInterval(iv);
+      vc.innerHTML = `<div style="padding:18px;"><div class="aierr">⚠️ No proxy configured. Paste your workers.dev URL in the banner at the top and click Save to enable Values Analysis.</div></div>`;
+      return;
+    }
+
+    const res = await fetch(proxyUrl,{
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        max_tokens: 1500,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    clearInterval(iv);
+    if(!res.ok) throw new Error('API error '+res.status);
+
+    // robustly handle different response shapes (JSON, text, wrapped JSON blocks)
+    let data;
+    try{
+      data = await res.json();
+    }catch(e){
+      const raw = await res.text();
+      // try to extract JSON object from text
+      const m = raw.match(/\{[\s\S]*\}$/);
+      if(m){
+        try{ data = JSON.parse(m[0]); }catch(e2){ throw new Error('Failed to parse JSON from response'); }
+      } else {
+        throw new Error('Unexpected API response format');
+      }
+    }
+
+    // If API returned pieces of text (e.g. content array), try to join and parse JSON embedded in text
+    let result = null;
+    try{
+      if(data && Array.isArray(data.content)){
+        const txt = data.content.map(b=>b.type==='text'?b.text:(b.text||'')).join('');
+        const clean = txt.replace(/```json|```/g,'').trim();
+        try{ result = JSON.parse(clean); }catch(e){ /* fallthrough */ }
+      }
+      if(!result){
+        // If server already returned parsed object matching expected shape, use it directly
+        if(data.valuesScore || data.gcuValues || data.outreachAngle) result = data;
+        else result = data;
+      }
+    }catch(e){
+      throw new Error('Failed to interpret API response');
+    }
+
+    // Support both old contentSignals and new content field names
+    if(!result.content && result.contentSignals) result.content = result.contentSignals;
+    p.vs = result.valuesScore ?? null;
+    p.vl = p.vs!==null ? (p.vs>=75?'Strong Align':p.vs>=55?'Good Align':p.vs>=35?'Moderate':'Low Align') : 'Not analyzed';
+    p.vd = result;
+
+    // Update header
+    document.getElementById('dpV').textContent = p.vs ?? '—';
+    document.getElementById('dpVL').textContent = p.vl;
+    const readiness = Math.round(p.score*0.6 + (p.vs||0)*0.4);
+    document.getElementById('dpRP').textContent = readiness + '%';
+    document.getElementById('dpRF').style.width = readiness + '%';
+
+    vc.innerHTML = buildValHTML(result,p);
+    renderTbl(); updateStats();
+    showToast('🧭 Values analysis complete for '+p.fn+' '+p.ln);
+
+  }catch(err){
+    clearInterval(iv);
+    console.error(err);
+    vc.innerHTML=`<div style="padding:18px;"><div class="aierr">⚠️ Analysis failed: ${err.message}<br><br><button onclick="runVA(${id})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 11px;border-radius:5px;cursor:pointer;font-size:11px;margin-top:6px;">↩ Try Again</button></div></div>`;
+  }
+}
+
+// ── BUILD VALUES HTML ──────────────────────────────────────────────────────
+function buildValHTML(r,p){
+  if(!r) r = {};
+  const tm={podcast:'st-p',article:'st-a',news:'st-n',faith:'st-f',linkedin:'st-l',nonprofit:'st-np',interview:'st-a',video:'st-p'};
+  const tl={podcast:'🎙 Podcast',article:'✍️ Article',news:'📰 News',faith:'⛪ Faith',linkedin:'💼 LinkedIn',nonprofit:'🏛 Nonprofit',interview:'🎤 Interview',video:'▶ Video'};
+  const ticon={podcast:'🎙',article:'📝',news:'📰',faith:'✝️',linkedin:'💼',nonprofit:'🏛',interview:'🎤',video:'▶'};
+
+  // VALUES GRID
+  const valsHTML=(r.gcuValues||[]).map(v=>{
+    const dc=v.status==='matched'?'ft':v.status==='partial'?'fg':'fa';
+    const dots=Array.from({length:5},(_,i)=>`<div class="vdot ${i<(v.score||0)?dc:''}"></div>`).join('');
+    return`<div class="vcard ${v.status}"><div class="vci">${v.icon||'?'}</div><div class="vcn ${v.status}">${v.name||'Unknown'}</div><div class="vce">${v.evidence||''}</div><div class="vcsc"><div class="vcd">${dots}</div><span class="vcsl">${v.score||0}/5</span></div></div>`;
+  }).join('');
+
+  // CONTENT CARDS — the main feature
+  const items = r.content || r.contentSignals || [];
+  const contentHTML = items.map((s,i)=>{
+    const hasUrl = s.url && s.url !== '#' && s.url.startsWith('http');
+    const typeClass = tm[s.type] || 'st-a';
+    const typeLabel = tl[s.type] || s.type;
+    const icon = ticon[s.type] || '📄';
+    const dateStr = s.date ? `<span style="font-size:10px;color:var(--g2);margin-left:auto;">${s.date}</span>` : '';
+    const sourceBadge = s.source ? `<span style="font-size:10px;color:var(--g1);font-weight:500;">${s.source}</span>` : '';
+
+    return `<div class="ccard" style="animation-delay:${i*0.07}s">
+      <div class="ccard-top">
+        <span class="stb ${typeClass}">${typeLabel}</span>
+        ${sourceBadge}
+        ${dateStr}
+      </div>
+      <div class="ccard-title">${hasUrl
+        ? `<a href="${s.url}" target="_blank" rel="noopener" class="ccard-link">${icon} ${s.title} <span class="ext-icon">↗</span></a>`
+        : `<span style="color:var(--white);">${icon} ${s.title}</span>`
+      }</div>
+      <div class="ccard-summary">${s.summary || s.description || ''}</div>
+      <div class="ccard-divider"></div>
+      <div class="ccard-footer">
+        <div class="ccard-gcutie">
+          <span class="ccard-tie-label">GCU tie</span>
+          <span class="ccard-tie-text">${s.gcuTie || s.gcuAngle || ''}</span>
+        </div>
+        <div class="ccard-talking">
+          <span class="ccard-tp-label">💬 Use in conversation</span>
+          <span class="ccard-tp-text">${s.talkingPoint || ''}</span>
+        </div>
+      </div>
+    </div>`;
+    }).join('');
+
+  // OUTREACH STRATEGY
+  const tpHTML=(r.outreachAngle?.talkingPoints||[]).map(pt=>`<div class="oap">${pt||''}</div>`).join('');
+  const openingLine = r.outreachAngle?.openingLine
+    ? `<div style="margin-bottom:10px;padding:10px 13px;background:rgba(0,0,0,0.2);border-left:3px solid var(--teal);border-radius:0 6px 6px 0;font-size:12px;color:var(--off);font-style:italic;line-height:1.6;">"${r.outreachAngle.openingLine}"</div>`
+    : '';
+
+  return`<div class="vpw">
+    <div>
+      <div class="dst" style="color:var(--teal);">Overall Assessment</div>
+      <div style="font-size:13px;color:var(--off);line-height:1.6;padding:11px 13px;background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.2);border-radius:8px;">${r.valuesSummary||'No assessment available'}</div>
+    </div>
+    <div>
+      <div class="dst" style="color:var(--teal);">GCU Core Values Alignment</div>
+      <div class="vgrid">${valsHTML}</div>
+    </div>
+    <div>
+      <div class="dst" style="color:var(--teal);display:flex;align-items:center;justify-content:space-between;">
+        <span>Articles, Podcasts & Content</span>
+        <span style="font-size:10px;color:var(--g2);font-weight:400;text-transform:none;letter-spacing:0;">${items.length} items found — click to open</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">${contentHTML}</div>
+    </div>
+    <div class="oa">
+      <div class="oah"><span style="font-size:17px;">🎯</span><span class="oat">Outreach Strategy</span></div>
+      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--white);margin-bottom:8px;padding:8px 11px;background:rgba(0,0,0,0.25);border-radius:7px;">Subject: ${r.outreachAngle?.headline||'(No headline)'}</div>
+      ${openingLine}
+      <div class="oab" style="margin-bottom:10px;">${r.outreachAngle?.why||'No analysis available'}</div>
+      <div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;">Talking Points</div>
+      <div class="oatp">${tpHTML}</div>
+    </div>
+  </div>`;
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV(){
+  if(!FILT.length){showToast('⚠️ No data to export');return;}
+  const h=['Last Name','First Name','Wealth Score','Grade','Values Score','Values Alignment','Home Value','Income','Giving','City','State','ZIP','Email','Outreach Headline'];
+  const rows=FILT.map(p=>[p.ln,p.fn,p.score,p.grade,p.vs??'N/A',p.vl,p.hv,p.inc,p.gv,p.city,p.state,p.zip,p.email,p.vd?.outreachAngle?.headline??'']);
+  dl([h,...rows],'gcu_prospects_v3.csv');showToast('⬇ Exported '+FILT.length+' prospects');
+}
+function exportFlagged(){
+  const fl=ALL.filter(p=>p.flagged);if(!fl.length){showToast('⚠️ No flagged prospects');return;}
+  const h=['Last Name','First Name','Wealth Score','Grade','Values Score','Outreach Headline','Talking Point 1','City','State','Email'];
+  const rows=fl.map(p=>[p.ln,p.fn,p.score,p.grade,p.vs??'N/A',p.vd?.outreachAngle?.headline??'',p.vd?.outreachAngle?.talkingPoints?.[0]??'',p.city,p.state,p.email]);
+  dl([h,...rows],'gcu_flagged_v3.csv');showToast('⭐ Exported '+fl.length+' flagged prospects');
+}
+function dl(data,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n')],{type:'text/csv'}));
+  a.download=name;a.click();
+}
+// ── PROXY CONFIG ──────────────────────────────────────────────────────────
+// In-memory proxy URL — works when file is opened directly in Chrome (file://)
+// localStorage is blocked for local files in Chrome, so we use a plain variable
+let PROXY_URL = '';
+
+function saveProxy(){
+  const inp = document.getElementById('proxyUrlInput');
+  const url = inp.value.trim();
+  if(!url){ showToast('⚠️ Paste your Worker URL first'); return; }
+  // Auto-add https:// if missing
+  PROXY_URL = url.startsWith('http') ? url : 'https://' + url;
+  inp.value = PROXY_URL;
+  updateProxyStatus();
+  showToast('✅ Connected to ' + PROXY_URL);
+}
+
+function getProxyUrl(){
+  // Also check the input field directly as a fallback
+  const inputVal = (document.getElementById('proxyUrlInput').value || '').trim();
+  return PROXY_URL || (inputVal.startsWith('http') ? inputVal : '');
+}
+
+function updateProxyStatus(){
+  const el = document.getElementById('proxyStatus');
+  if(PROXY_URL){
+    el.textContent = '✅ Connected';
+    el.style.color = 'var(--green)';
+  } else {
+    el.textContent = '⚠ Not configured';
+    el.style.color = 'var(--amber)';
+  }
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
+</script>
+</body>
+</html>
+
+
